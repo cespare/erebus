@@ -9,7 +9,6 @@ More info forthcoming.
 * `from` filtering:
   - `remote-addr` A particular remote address
   - `header` Some header and optionally, a particular value
-  - `path` Some request path, possibly with wildcards or regexes
   - `querystring` Some querystring parameter and optionally, a particular value
 * `to` modifications:
   - `addr` is required

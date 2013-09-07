@@ -45,6 +45,7 @@ type TestRequest struct {
 
 	// These may be set in TestCases
 	Method      string
+	Path        string
 	QueryParams map[string]string
 	Host        string
 
@@ -82,6 +83,31 @@ var testCases = []TestCase{
 			},
 		},
 	},
+
+	{`[{"from": {"path": "/foo/bar"},
+	    "to":   {"addr": "{{backend1}}"}},
+	   {"from": {"pathprefix": "/foo/"},
+	    "to":   {"addr": "{{backend2}}"}},
+	   {"from": {"pathregex": "foo"},
+	    "to":   {"addr": "{{backend3}}"}}]`,
+		[]*TestRequest{
+			{
+				Description: "a path rule must match exactly",
+				Path:        "/foo/bar",
+				Backend:     1,
+			},
+			{
+				Description: "a pathprefix will match if the request path is a prefix of the rule",
+				Path:        "/foo/baz",
+				Backend:     2,
+			},
+			{
+				Description: "a pathregex is interpreted as a regular expression to match the path",
+				Path:        "/a/b/foo/c",
+				Backend:     3,
+			},
+		},
+	},
 }
 
 func TestCases(t *testing.T) {
@@ -114,7 +140,7 @@ func TestCases(t *testing.T) {
 				method = "GET"
 			}
 			id := nextId()
-			url := fmt.Sprintf("%s?_id=%s", server.URL, id)
+			url := fmt.Sprintf("%s%s?_id=%s", server.URL, req.Path, id)
 			for k, v := range req.QueryParams {
 				url += fmt.Sprintf("&%s=%s", k, v)
 			}

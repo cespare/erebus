@@ -1,6 +1,6 @@
 [
   {
-    "from": {"host": "example.com"},
+    "from": {"pathprefix": "/foo/"},
     "to":   {"addr": "localhost:8100"}
   }
 ]

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -17,13 +18,35 @@ type Conf struct {
 	To   *ToConf
 }
 
+func (c *Conf) validate() error {
+	if c.From.PathRegex != "" {
+		var err error
+		c.From.regex, err = regexp.Compile(c.From.PathRegex)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type FromConf struct {
-	Host string
+	Host       string
+	Path       string
+	PathPrefix string
+	PathRegex  string
+	regex      *regexp.Regexp
 }
 
 // Matches determines whether an HTTP request matches this configuration.
 func (c *FromConf) Matches(r *http.Request) bool {
-	if c.Host != "" && c.Host != r.Host {
+	switch {
+	case c.Host != "" && c.Host != r.Host:
+		return false
+	case c.Path != "" && c.Path != r.URL.Path:
+		return false
+	case c.PathPrefix != "" && !strings.HasPrefix(r.URL.Path, c.PathPrefix):
+		return false
+	case c.regex != nil && !c.regex.MatchString(r.URL.Path):
 		return false
 	}
 	return true
@@ -117,6 +140,11 @@ func NewProxyFromRules(jsonText []byte) (*Proxy, error) {
 	if len(rules) < 1 {
 		return nil, fmt.Errorf("configuration must include at least one rule.")
 	}
+	for _, conf := range rules {
+		if err := conf.validate(); err != nil {
+			return nil, fmt.Errorf("error with configuration: %s", err)
+		}
+	}
 	proxy := &Proxy{
 		Rules:     rules,
 		Transport: http.DefaultTransport,
@@ -130,8 +158,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			out := rule.To.CreateRequest(r)
 			resp, err := p.Transport.RoundTrip(out)
 			if err != nil {
-				log.Printf("erebus proxy error: %v", err)
-				w.WriteHeader(http.StatusInternalServerError)
+				msg := fmt.Sprintf("backend error: %s", err)
+				log.Print(msg)
+				http.Error(w, msg, http.StatusInternalServerError)
 				return
 			}
 			defer resp.Body.Close()
