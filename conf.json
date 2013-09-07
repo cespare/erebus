@@ -1,0 +1,6 @@
+[
+  {
+    "from": {"host": "example.com"},
+    "to":   {"addr": "localhost:8100"}
+  }
+]
