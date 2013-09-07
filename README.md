@@ -2,6 +2,9 @@
 
 Erebus is a little HTTP reverse proxy.
 
+This is the successor to [rrproxy](https://github.com/cespare/rrproxy) and
+[ez-nginx-proxy](https://github.com/cespare/ez-nginx-proxy).
+
 More info forthcoming.
 
 ## To Do
