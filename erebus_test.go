@@ -65,17 +65,17 @@ var testCases = []TestCase{
 	   {"from": {"host": "bar.com"},
 	    "to":   {"addr": "{{backend2}}"}}]`,
 		[]*TestRequest{
-			&TestRequest{
+			{
 				Description: "a simple request should be sent to the correct backend for its HOST (1 of 2)",
 				Host:        "foo.com",
 				Backend:     1,
 			},
-			&TestRequest{
+			{
 				Description: "a simple request should be sent to the correct backend for its HOST (2 of 2)",
 				Host:        "bar.com",
 				Backend:     2,
 			},
-			&TestRequest{
+			{
 				Description: "a simple request should get an HTTP 502 if there is no matching backend",
 				Host:        "baz.com",
 				Status:      http.StatusBadGateway,
