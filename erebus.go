@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type Conf struct {
@@ -153,12 +154,22 @@ func NewProxyFromRules(jsonText []byte) (*Proxy, error) {
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fromLog := Csprintf("[%s] #blue{%s} %s", r.Host, r.Method, r.URL)
+	delay := time.Duration(0)
+	toLog := ""
+	defer func() { LogCprintf("%s #blue{→}  %s", fromLog, toLog) }()
+
 	for _, rule := range p.Rules {
 		if rule.From.Matches(r) {
 			out := rule.To.CreateRequest(r)
+
+			before := time.Now()
 			resp, err := p.Transport.RoundTrip(out)
+			delay = time.Since(before)
+
 			if err != nil {
 				msg := fmt.Sprintf("backend error: %s", err)
+				toLog = Csprintf("%s #red{%s}", rule.To.Addr, msg)
 				log.Print(msg)
 				http.Error(w, msg, http.StatusInternalServerError)
 				return
@@ -167,17 +178,24 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			copyHeader(w.Header(), resp.Header)
 			w.WriteHeader(resp.StatusCode)
+			status := Csprintf("#red{%d}", resp.StatusCode)
+			if resp.StatusCode == http.StatusOK {
+				status = Csprintf("#green{%d}", resp.StatusCode)
+			}
+			toLog = Csprintf("%s %s #blue{%.3fs}", rule.To.Addr, status, delay.Seconds())
 			// TODO: There might be scenarios in which we should implement periodic flushing here
 			io.Copy(w, resp.Body)
 			return
 		}
 	}
+	toLog = Csprintf("#red{No matching rule.}")
 	http.Error(w, "No matching rule.", http.StatusBadGateway)
 }
 
 var (
 	listenAddr = flag.String("listenaddr", "localhost:3111", "The address on which erebus should listen")
 	configFile = flag.String("conf", "conf.json", "The configuration file to use")
+	verbose    = flag.Bool("verbose", false, "Log each request")
 	proxy      *Proxy
 )
 
@@ -193,6 +211,6 @@ func init() {
 }
 
 func main() {
-	log.Println("Now listening on ", *listenAddr)
+	log.Println("Now listening on", *listenAddr)
 	log.Fatal(http.ListenAndServe(*listenAddr, proxy))
 }
