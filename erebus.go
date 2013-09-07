@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -106,6 +107,23 @@ type Proxy struct {
 	Transport http.RoundTripper
 }
 
+// NewProxyFromRules takes a raw JSON configuration and constructs a Proxy from it. It may return an error if
+// the rules are malformed or invalid.
+func NewProxyFromRules(jsonText []byte) (*Proxy, error) {
+	rules := []*Conf{}
+	if err := json.Unmarshal(jsonText, &rules); err != nil {
+		return nil, err
+	}
+	if len(rules) < 1 {
+		return nil, fmt.Errorf("configuration must include at least one rule.")
+	}
+	proxy := &Proxy{
+		Rules:     rules,
+		Transport: http.DefaultTransport,
+	}
+	return proxy, nil
+}
+
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, rule := range p.Rules {
 		if rule.From.Matches(r) {
@@ -136,21 +154,12 @@ var (
 
 func init() {
 	flag.Parse()
-	f, err := os.Open(*configFile)
+	contents, err := ioutil.ReadFile(*configFile)
+	if err == nil {
+		proxy, err = NewProxyFromRules(contents)
+	}
 	if err != nil {
-		log.Fatal(err)
-	}
-	decoder := json.NewDecoder(f)
-	rules := []*Conf{}
-	if err := decoder.Decode(&rules); err != nil {
-		log.Fatalf("Error reading configuration file %s: %s", *configFile, err)
-	}
-	if len(rules) < 1 {
-		log.Fatal("Error with configuration file %s: must include at least one rule.", *configFile)
-	}
-	proxy = &Proxy{
-		Rules:     rules,
-		Transport: http.DefaultTransport,
+		log.Fatalf("Error with configuration %s: %s", *configFile, err)
 	}
 }
 
